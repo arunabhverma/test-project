@@ -15,11 +15,50 @@ import {
   FlatList,
   Pressable,
   ActivityIndicator,
+  Linking,
+  ToastAndroid,
 } from 'react-native';
 import BleManager from 'react-native-ble-manager';
 
 const BleManagerModule = NativeModules.BleManager;
 const bleManagerEmitter = new NativeEventEmitter(BleManagerModule);
+
+// const getBluetoothPermission = async (setState) => {
+//   if(Platform.OS === 'android'){
+//       try {
+//         const granted = await PermissionsAndroid.request(
+//           PermissionsAndroid.PERMISSIONS.BLUETOOTH_CONNECT,
+//           {
+//             title: "Bluetooth Permission",
+//             message:
+//               "You can't use this application without this permission" +
+//               "bluetooth permission",
+//             buttonNeutral: "Ask Me Later",
+//             buttonNegative: "Cancel",
+//             buttonPositive: "OK"
+//           }
+//         );
+//         if (granted === PermissionsAndroid.RESULTS.GRANTED) {
+//           setState(prev => ({...prev, bluetoothPermission: true}))
+//           console.log("You can use the bluetooth");
+//         } else {
+//           setState(prev => ({...prev, bluetoothPermission: false}))
+//           console.log("bluetooth permission denied");
+//         }
+//       } catch (err) {
+//         setState(prev => ({...prev, bluetoothPermission: false}))
+//         console.warn(err);
+//       }
+//   }
+// }
+
+const alertMsg = (msg) => {
+  if(Platform.OS === 'android'){
+    ToastAndroid.show(msg, ToastAndroid.SHORT);
+  } else {
+    alert(msg);
+  }
+}
 
 const getLocationPermission = () => {
   if (Platform.OS === 'android' && Platform.Version >= 23) {
@@ -44,10 +83,15 @@ const App = () => {
     isBluetoothOn: null,
     list: [],
     isScanning: false,
-    loadingId: ''
+    loadingId: '',
+    bluetoothPermission: false,
   });
 
   const peripherals = new Map();
+
+  // useEffect(() => {
+  //   getBluetoothPermission(setState)
+  // }, [])
 
   useEffect(() => {
     if (state.isBluetoothOn === null) {
@@ -137,7 +181,7 @@ const App = () => {
         BleManager.disconnect(peripheral.id).then(() => {
           const data = state.list?.map(item => {
             if(item.id === peripheral.id){
-              return {...item, connected: true}
+              return {...item, connected: false}
             } else {
               return item
             }
@@ -145,12 +189,12 @@ const App = () => {
           // p.connected = true;
           // peripherals.set(peripheral.id, p);
           setState(prev => ({ ...prev, list: data, loadingId: '' }))
-          alert(`disconnected with ${peripheral.id}`)
+          alertMsg(`disconnected with ${peripheral.id}`)
         });
       } else {
         BleManager.connect(peripheral.id).then(() => {
-          let p = peripherals.get(peripheral.id);
-          if (p) {
+          // let p = peripherals.get(peripheral.id);
+          // if (p) {
             const data = state.list?.map(item => {
               if(item.id === peripheral.id){
                 return {...item, connected: true}
@@ -161,9 +205,9 @@ const App = () => {
             // p.connected = true;
             // peripherals.set(peripheral.id, p);
             setState(prev => ({ ...prev, list: data, loadingId: '' }))
-          }
+          // }
           setState(prev => ({ ...prev, loadingId: '' }))
-          alert(`connected with ${peripheral.id}`);
+          alertMsg(`connected with ${peripheral.id}`);
           setTimeout(() => {
             BleManager.retrieveServices(peripheral.id).then((peripheralData) => {
               BleManager.readRSSI(peripheral.id).then((rssi) => {
@@ -177,7 +221,7 @@ const App = () => {
             });
           }, 1000);
         }).catch((error) => {
-          console.log('Connection error', error);
+          alertMsg('Connection error', error)
           setState(prev => ({ ...prev, loadingId: '' }))
         });
       }
@@ -190,10 +234,10 @@ const App = () => {
     return (
       <Pressable disabled={state.loadingId === item.id} android_ripple={{color: 'rgba(0, 0, 0, 0.1)'}} onPress={() => testPeripheral(item)} style={[styles.row, { backgroundColor: color }]}>
         <View>
-          <Text style={[styles.newFont, {paddingVertical: 10}]}>{`${item.name} (id : ${item.id})`}</Text>
+          <Text style={[styles.newFont, {paddingVertical: 10}]}>{`${item.name || 'NO NAME'} (id : ${item.id})`}</Text>
           <Text style={[styles.newFont, {fontSize: 13}]}>{!!item.connected ? 'CONNECTED' : 'NOT CONNECTED'}</Text>
           <Text style={[styles.newFont, {fontSize: 13}]}>RSSI: {item.rssi}</Text>
-          <Text style={[styles.newFont, {fontSize: 13, paddingBottom: 15}]}>CONNECTABLE: {item.advertising.isConnectable.toString()}</Text>
+          <Text style={[styles.newFont, {fontSize: 13, paddingBottom: 15}]}>CONNECTABLE: {item?.advertising?.isConnectable?.toString()}</Text>
           </View>
           <View>
             {state.loadingId === item.id && <ActivityIndicator color={'teal'} size={'large'} />}
@@ -220,6 +264,19 @@ const App = () => {
       </View>
     );
   }
+
+  // const openAppSetting = () => {
+  //   Linking.openSettings();
+  // }
+
+  // if(!state.bluetoothPermission){
+  //   return(
+  //     <View style={{flex:1, justifyContent:'center', alignItems:'center', backgroundColor:'white'}}>
+  //       <Text style={{color:'black'}}>Please give bluetooth permission first</Text>
+  //       <Button isLoading={state.isScanning} title="Open Setting" onPress={openAppSetting} />
+  //     </View>
+  //   );
+  // }
 
   return (
     <>
