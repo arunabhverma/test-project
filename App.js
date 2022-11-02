@@ -162,6 +162,7 @@ const App = () => {
             // peripherals.set(peripheral.id, p);
             setState(prev => ({ ...prev, list: data, loadingId: '' }))
           }
+          setState(prev => ({ ...prev, loadingId: '' }))
           alert(`connected with ${peripheral.id}`);
           setTimeout(() => {
             BleManager.retrieveServices(peripheral.id).then((peripheralData) => {
