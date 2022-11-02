@@ -44,6 +44,7 @@ const App = () => {
     isBluetoothOn: null,
     list: [],
     isScanning: false,
+    loadingId: ''
   });
 
   const peripherals = new Map();
@@ -106,7 +107,7 @@ const App = () => {
   const retrieveConnected = () => {
     BleManager.getConnectedPeripherals([]).then((results) => {
       if (results.length == 0) {
-        return false;
+        setState(prev => ({ ...prev, list: [] }))
       }
       for (var i = 0; i < results.length; i++) {
         var peripheral = results[i];
@@ -130,17 +131,38 @@ const App = () => {
   }
 
   const testPeripheral = (peripheral) => {
+    setState(prev => ({...prev, loadingId: peripheral.id}))
     if (peripheral) {
       if (peripheral.connected) {
-        BleManager.disconnect(peripheral.id);
+        BleManager.disconnect(peripheral.id).then(() => {
+          const data = state.list?.map(item => {
+            if(item.id === peripheral.id){
+              return {...item, connected: true}
+            } else {
+              return item
+            }
+          })
+          // p.connected = true;
+          // peripherals.set(peripheral.id, p);
+          setState(prev => ({ ...prev, list: data, loadingId: '' }))
+          alert(`disconnected with ${peripheral.id}`)
+        });
       } else {
         BleManager.connect(peripheral.id).then(() => {
           let p = peripherals.get(peripheral.id);
           if (p) {
-            p.connected = true;
-            peripherals.set(peripheral.id, p);
-            setState(prev => ({ ...prev, list: Array.from(peripherals.values()) }))
+            const data = state.list?.map(item => {
+              if(item.id === peripheral.id){
+                return {...item, connected: true}
+              } else {
+                return item
+              }
+            })
+            // p.connected = true;
+            // peripherals.set(peripheral.id, p);
+            setState(prev => ({ ...prev, list: data, loadingId: '' }))
           }
+          alert(`connected with ${peripheral.id}`);
           setTimeout(() => {
             BleManager.retrieveServices(peripheral.id).then((peripheralData) => {
               BleManager.readRSSI(peripheral.id).then((rssi) => {
@@ -155,20 +177,26 @@ const App = () => {
           }, 1000);
         }).catch((error) => {
           console.log('Connection error', error);
+          setState(prev => ({ ...prev, loadingId: '' }))
         });
       }
     }
 
   }
 
-  const renderItem = ({ item, index }) => {
+  const renderItem = ({ item }) => {
     const color = item.connected ? 'rgba(100, 255, 100, 0.4)' : 'white';
     return (
-      <Pressable android_ripple={{color: 'rgba(0, 0, 0, 0.1)'}}  onPress={() => testPeripheral(item)} style={{ backgroundColor: color }}>
+      <Pressable disabled={state.loadingId === item.id} android_ripple={{color: 'rgba(0, 0, 0, 0.1)'}} onPress={() => testPeripheral(item)} style={[styles.row, { backgroundColor: color }]}>
+        <View>
           <Text style={[styles.newFont, {paddingVertical: 10}]}>{`${item.name} (id : ${item.id})`}</Text>
           <Text style={[styles.newFont, {fontSize: 13}]}>{!!item.connected ? 'CONNECTED' : 'NOT CONNECTED'}</Text>
           <Text style={[styles.newFont, {fontSize: 13}]}>RSSI: {item.rssi}</Text>
           <Text style={[styles.newFont, {fontSize: 13, paddingBottom: 15}]}>CONNECTABLE: {item.advertising.isConnectable.toString()}</Text>
+          </View>
+          <View>
+            {state.loadingId === item.id && <ActivityIndicator color={'teal'} size={'large'} />}
+          </View>
       </Pressable>
     );
   }
@@ -176,7 +204,7 @@ const App = () => {
   const Button = ({ title, onPress, isLoading }) => {
     return (
       <View style={styles.buttonWrapper}>
-        <Pressable disabled={isLoading} onPress={() => {}} android_ripple={{ color: 'rgba(0, 0, 0, 0.1)' }} style={[styles.buttonStyle, styles.center]}>
+        <Pressable disabled={isLoading} onPress={onPress} android_ripple={{ color: 'rgba(0, 0, 0, 0.1)' }} style={[styles.buttonStyle, styles.center]}>
           {isLoading ? <ActivityIndicator color={'white'} /> : <Text style={styles.buttonText}>{title}</Text>}
         </Pressable>
       </View>
@@ -186,18 +214,18 @@ const App = () => {
   const ListEmptyComponent = () => {
     return (
       <View style={[styles.flexOne, styles.center]}>
-        {state.isBluetoothOn ? <Text>No peripherals</Text>
-          : <Text>Please turn on the bluetooth</Text>}
+        {state.isBluetoothOn ? <Text style={{color: 'black'}}>No peripherals</Text>
+          : <Text style={{color: 'black'}}>Please turn on the bluetooth</Text>}
       </View>
     );
   }
 
-  const data = [
+  let d = [
     {
       id:'1',
       name: 'Main',
       rssi: 'ow',
-      connected: true,
+      connected: false,
       advertising: {
         isConnectable: false,
       }
@@ -207,9 +235,10 @@ const App = () => {
   return (
     <>
       <StatusBar barStyle={'light-content'} backgroundColor={'teal'} />
-      <SafeAreaView style={{ flex: 1 }}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: 'white' }}>
         <FlatList
-          data={state.isBluetoothOn ? state.list : []}
+          // data={state.isBluetoothOn ? state.list : []}
+          data={d}
           contentContainerStyle={styles.contentContainerStyle}
           ListEmptyComponent={ListEmptyComponent}
           renderItem={renderItem}
@@ -218,12 +247,12 @@ const App = () => {
         <View style={styles.buttonFloat}>
           {state.isBluetoothOn ? <>
             <Button
-              title={'Scan Bluetooth (' + (state.isScanning ? 'on' : 'off') + ')'}
+              title={'Scan Bluetooth'}
               onPress={() => startScan()}
             />
             <Button title="Retrieve connected peripherals" onPress={() => retrieveConnected()} />
           </> :
-            <Button isLoading={state.isScanning} title="Trun Bluetooth On" onPress={bluetoothOn} />}
+            <Button isLoading={state.isScanning} title="Turn Bluetooth On" onPress={bluetoothOn} />}
         </View>
       </SafeAreaView>
     </>
@@ -245,7 +274,7 @@ const styles = StyleSheet.create({
   buttonFloat: {
     position: 'absolute',
     bottom: 20,
-    width: '100%'
+    width: '100%',
   },
   buttonStyle: {
     backgroundColor: 'teal',
@@ -267,6 +296,12 @@ const styles = StyleSheet.create({
   buttonText: {
     color: 'white',
     fontSize: 15
+  },
+  row: {
+    paddingHorizontal: 20,
+    flexDirection:'row',
+    justifyContent:'space-between',
+    alignItems:'center'
   }
 });
 
