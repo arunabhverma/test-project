@@ -220,25 +220,12 @@ const App = () => {
     );
   }
 
-  let d = [
-    {
-      id:'1',
-      name: 'Main',
-      rssi: 'ow',
-      connected: false,
-      advertising: {
-        isConnectable: false,
-      }
-    }
-  ]
-
   return (
     <>
       <StatusBar barStyle={'light-content'} backgroundColor={'teal'} />
       <SafeAreaView style={{ flex: 1, backgroundColor: 'white' }}>
         <FlatList
-          // data={state.isBluetoothOn ? state.list : []}
-          data={d}
+          data={state.isBluetoothOn ? state.list : []}
           contentContainerStyle={styles.contentContainerStyle}
           ListEmptyComponent={ListEmptyComponent}
           renderItem={renderItem}
